@@ -1,5 +1,6 @@
 <script setup>
-import { ref, reactive, watch } from "vue";
+import { ref, reactive, watch, computed, onMounted } from "vue";
+import Filters from "./components/Filters.vue";
 import Presupuesto from "./components/Presupuesto.vue";
 import Gasto from "./components/Gasto.vue";
 import Modal from "./components/Modal.vue";
@@ -13,6 +14,7 @@ const modal = reactive({
 const presupuesto = ref(0);
 const disponible = ref(0);
 const gastado = ref(0);
+const filtro = ref(0);
 const gasto = reactive({
   nombre: "",
   cantidad: "",
@@ -30,6 +32,7 @@ watch(
     );
     gastado.value = totalGastado;
     disponible.value = presupuesto.value - totalGastado;
+    localStorage.setItem("gastos", JSON.stringify(gastos.value));
   },
 
   {
@@ -41,7 +44,20 @@ watch(modal, () => {
     reiniciarStateGasto();
   }
 });
-
+watch(presupuesto, () => {
+  localStorage.setItem("presupuesto", presupuesto.value);
+});
+onMounted(() => {
+  const presupuestoStorage = localStorage.getItem("presupuesto");
+  if (presupuestoStorage) {
+    presupuesto.value = Number(presupuestoStorage);
+    disponible.value = Number(presupuestoStorage);
+  }
+  const gastosStorage = localStorage.getItem("gastos");
+  if (gastosStorage) {
+    gastos.value = JSON.parse(gastosStorage);
+  }
+});
 const definirPresupuesto = (cantidad) => {
   presupuesto.value = cantidad;
   disponible.value = cantidad;
@@ -92,6 +108,26 @@ const reiniciarStateGasto = () => {
     fecha: Date.now(),
   });
 };
+const eliminarGasto = () => {
+  if (confirm("Eliminar?")) {
+    gastos.value = gastos.value.filter(
+      (gastoState) => gastoState.id !== gasto.id
+    );
+    ocultarModal();
+  }
+};
+const gastosFiltrados = computed(() => {
+  if (filtro.value) {
+    return gastos.value.filter((gasto) => gasto.categoria === filtro.value);
+  }
+  return gastos.value;
+});
+const resetApp = () => {
+  if (confirm("¿Desear reiniciar presupuesto y gastos?")) {
+    gastos.value = [];
+    presupuesto.value = 0;
+  }
+};
 </script>
 
 <template>
@@ -108,14 +144,17 @@ const reiniciarStateGasto = () => {
           :presupuesto="presupuesto"
           :disponible="disponible"
           :gastado="gastado"
+          @reset-app="resetApp"
         />
       </div>
     </header>
+
     <main v-if="presupuesto > 0">
       <div class="listado-gastos contenedor">
-        <h2>{{ gastos.length > 0 ? "Gastos" : "No hay gastos" }}</h2>
+        <Filters v-model:filtro="filtro" />
+        <h2>{{ gastosFiltrados.length > 0 ? "Gastos" : "No hay gastos" }}</h2>
         <Gasto
-          v-for="gasto in gastos"
+          v-for="gasto in gastosFiltrados"
           :key="gasto.id"
           :gasto="gasto"
           @seleccionar-gasto="seleccionarGasto"
@@ -131,8 +170,10 @@ const reiniciarStateGasto = () => {
       <Modal
         v-if="modal.mostrar"
         @ocultar-modal="ocultarModal"
+        @eliminar-gasto="eliminarGasto"
         :modal="modal"
         :disponible="disponible"
+        :id="gasto.id"
         @guardar-gasto="guardarGasto"
         v-model:nombre="gasto.nombre"
         v-model:cantidad="gasto.cantidad"
@@ -140,6 +181,9 @@ const reiniciarStateGasto = () => {
       />
     </main>
   </div>
+  <footer>
+    <p>/ᐠ｡ꞈ｡ᐟ\ <span> Powered by Moyosoft </span></p>
+  </footer>
 </template>
 
 <style>
@@ -202,7 +246,7 @@ header h1 {
 }
 .crear-gasto {
   position: fixed;
-  bottom: 5rem;
+  bottom: 6rem;
   right: 5rem;
 }
 .crear-gasto img {
@@ -215,5 +259,16 @@ header h1 {
 .listado-gastos h2 {
   font-weight: bold;
   color: var(--gris-oscuro);
+}
+footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--azul);
+  color: white;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.5px;
 }
 </style>

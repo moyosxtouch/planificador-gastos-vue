@@ -1,11 +1,12 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import cerrarModal from "../assets/img/cerrar.svg";
 import Alerta from "./Alerta.vue";
 const error = ref("");
 const emit = defineEmits([
   "ocultar-modal",
   "guardar-gasto",
+  "eliminar-gasto",
   "update:nombre",
   "update:cantidad",
   "update:categoria",
@@ -31,10 +32,15 @@ const props = defineProps({
     type: Number,
     required: true,
   },
+  id: {
+    type: [String, null],
+    required: true,
+  },
 });
+const old = props.cantidad;
 const agregarGasto = () => {
   //validar que no haya campos vacios
-  const { cantidad, categoria, nombre, disponible } = props;
+  const { cantidad, categoria, nombre, disponible, id } = props;
   if ([nombre, cantidad, categoria].includes("")) {
     error.value = "Todos los campos son obligatorios";
     setTimeout(() => {
@@ -51,15 +57,28 @@ const agregarGasto = () => {
     return;
   }
   //Validar que el usuario no gaste mas de lo disponible
-  if (cantidad > disponible) {
-    error.value = "Has excedido el Presupuesto";
-    setTimeout(() => {
-      error.value = "";
-    }, 3000);
-    return;
+  if (id) {
+    if (cantidad > old + disponible) {
+      error.value = "Has excedido el Presupuesto";
+      setTimeout(() => {
+        error.value = "";
+      }, 3000);
+      return;
+    }
+  } else {
+    if (cantidad > disponible) {
+      error.value = "Has excedido el Presupuesto";
+      setTimeout(() => {
+        error.value = "";
+      }, 3000);
+      return;
+    }
   }
   emit("guardar-gasto");
 };
+const isEditing = computed(() => {
+  return props.id;
+});
 </script>
 <template>
   <div class="modal">
@@ -71,7 +90,7 @@ const agregarGasto = () => {
       :class="[modal.animar ? 'animar' : 'cerrar']"
     >
       <form class="nuevo-gasto" @submit.prevent="agregarGasto">
-        <legend>Añadir Gasto</legend>
+        <legend>{{ isEditing ? "Guardar Cambios" : "Añadir Gasto" }}</legend>
 
         <Alerta v-if="error">{{ error }}</Alerta>
         <div class="campo">
@@ -110,9 +129,20 @@ const agregarGasto = () => {
             <option value="salud">Salud</option>
             <option value="suscripciones">Suscripciones</option>
           </select>
-          <input type="submit" value="Añadir Gasto" />
+          <input
+            type="submit"
+            :value="[isEditing ? 'Guardar Cambios' : 'Añadir Gasto']"
+          />
         </div>
       </form>
+      <button
+        type="button"
+        class="btn-eliminar"
+        v-if="isEditing"
+        @click="$emit('eliminar-gasto')"
+      >
+        Eliminar Gasto
+      </button>
     </div>
   </div>
 </template>
@@ -179,6 +209,18 @@ const agregarGasto = () => {
   background-color: var(--azul);
   color: var(--blanco);
   font-weight: 700;
+  cursor: pointer;
+}
+.btn-eliminar {
+  border-radius: 1rem;
+  border: none;
+  padding: 1rem;
+  width: 100%;
+  background-color: #ef4444;
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--blanco);
+  margin-top: 10rem;
   cursor: pointer;
 }
 </style>
